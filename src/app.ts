@@ -1,6 +1,7 @@
 import express from 'express';
 import morgan from 'morgan';
-import sequelize from './config/mysql';
+import { connect } from 'mongoose';
+import { dbConnection } from './config/monogdb';
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { NODE_ENV, PORT } from './config';
@@ -38,14 +39,7 @@ class App {
   }
 
   private connectToDatabase() {
-    if (this.env !== 'production') {
-      set('debug', true);
-    }
-    sequelize.authenticate().then(() => {
-      console.log('Connection has been established successfully.');
-    }).catch((error) => {
-        console.error('Unable to connect to the database: ', error);
-    });
+    connect(dbConnection.url);
   }
 
   private initializeMiddlewares() {
