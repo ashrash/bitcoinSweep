@@ -1,7 +1,7 @@
 
 export interface Account {
     _id: number;
-    name: string;
+    username: string;
     bitcoinAddress: string;
 }
 

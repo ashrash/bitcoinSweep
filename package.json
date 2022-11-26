@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "env-cmd -f dev.env ts-node-dev --respawn --transpile-only src/index.ts",
     "test": "nodemon . --ext ts --exec \"mocha -r ts-node/register src/tests/*.test.ts\"",
     "tree": "markdown-notes-tree --numberSpaces 2"
   },
@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/ashrash/nodeBackend#readme",
   "devDependencies": {
+    "@types/axios": "^0.14.0",
     "@types/chai": "^4.3.1",
     "@types/express": "^4.17.13",
     "@types/mocha": "^9.1.1",
@@ -38,9 +39,11 @@
     "supertest": "^6.2.3",
     "ts-node": "^10.7.0",
     "ts-node-dev": "^1.1.8",
+    "tsconfig-paths": "^4.1.0",
     "typescript": "^4.6.4"
   },
   "dependencies": {
+    "@types/node-fetch": "^2.6.2",
     "axios": "^1.2.0",
     "bip32": "^3.1.0",
     "bip39": "^3.0.4",
@@ -51,12 +54,15 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.1",
     "ecpair": "^2.1.0",
+    "env-cmd": "^10.1.0",
     "express": "^4.17.1",
     "helmet": "^5.1.0",
     "hpp": "^0.2.3",
+    "int64-buffer": "^1.0.1",
     "mongoose": "^6.7.3",
     "morgan": "^1.10.0",
     "mysql2": "^2.3.3",
+    "node-fetch": "^2.6.7",
     "ramda": "^0.28.0",
     "sequelize": "^6.25.1",
     "sqlite3": "^5.1.2",

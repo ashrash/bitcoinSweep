@@ -1,12 +1,12 @@
 import express from 'express';
 import morgan from 'morgan';
-import { connect } from 'mongoose';
-import { dbConnection } from './config/monogdb';
+import { connect, set } from 'mongoose';
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { NODE_ENV, PORT } from './config';
+import { dbConnection } from './config/monogdb';
 import { Routes } from './interfaces/routes.interface';
-import { logger, stream } from './utils/logger';
+import { logger } from './utils/logger';
 import errorMiddleware from './middleware/error.middleware';
 class App {
   public app: express.Application;
@@ -28,9 +28,8 @@ class App {
   public listen() {
     this.app.listen(this.port, () => {
       logger.info(`=================================`);
-      logger.info(`======= ENV: ${this.env} =======`);
+      logger.info(`======= ENV: ${this.env} ========`);
       logger.info(`🚀 App listening on the port ${this.port}`);
-      logger.info(`=================================`);
     });
   }
 
@@ -39,7 +38,16 @@ class App {
   }
 
   private connectToDatabase() {
-    connect(dbConnection.url);
+    if (this.env !== 'production') {
+      set('debug', true);
+    }
+
+    connect(dbConnection.url).then(()=> {
+      logger.info(`==Mongodb Connection successful==`);
+      logger.info(`=================================`);
+    }).catch((err)=>{
+      logger.error(`==${JSON.stringify(err)}==`)
+    });
   }
 
   private initializeMiddlewares() {

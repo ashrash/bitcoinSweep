@@ -15,7 +15,8 @@ class AccountRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.get(`${this.route}/:_id`, this.accountController.getAccountById);
+    this.router.get(`${this.route}/balance/:_id`, this.accountController.getAccountBalance);
+    this.router.get(`${this.route}/sweep/:_id`, this.accountController.sweepAccountBalance);
     this.router.post(`${this.route}`,  validationMiddleware(CreateAccountDto, 'body'), this.accountController.createAccount);
   }
 }

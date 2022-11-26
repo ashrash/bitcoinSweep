@@ -1,4 +1,2 @@
-export DB_HOST= 'localhost:3306'
-export DB_PASSWORD= 'rash'
-export DB_USERNAME = 'Myaz290d'
+export DB_CONNECTION_STRING= 'mongodb://ashrash:Myaz290d.@sandbox-shard-00-00.htgt6.mongodb.net:27017,sandbox-shard-00-01.htgt6.mongodb.net:27017,sandbox-shard-00-02.htgt6.mongodb.net:27017/node?replicaSet=atlas-ec4pa3-shard-0&ssl=true&authSource=admin'
 npm start
