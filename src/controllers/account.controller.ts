@@ -8,8 +8,8 @@ class AccountController {
     public sweepAccountBalance = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { _id } = req.params;
-            const status: boolean = await this.accountService.sweepAccount(_id);
-            res.status(200).json({  status: 200, sweepSuccess: status });
+            const { sweepSuccess, message } = await this.accountService.sweepAccount(_id);
+            res.status(200).json({  status: 200, sweepSuccess, message });
         } catch (error) {
             next(error);
         }

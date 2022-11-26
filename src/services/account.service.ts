@@ -1,17 +1,18 @@
-import { HttpException } from '../utils/exception';
-import accountModel from '../models/account.models';
-import { Account, AccountInfo, AccountPayload } from '../interfaces/account.interface';
-import * as bip39 from 'bip39'
-import { networks, payments, Psbt, crypto, script, Transaction } from 'bitcoinjs-lib';
-import * as ecc from 'tiny-secp256k1';
+import * as bip39 from 'bip39';
+import fetch from 'node-fetch';
 import BIP32Factory from 'bip32'
-import * as R from 'ramda';
 import ECPairFactory from 'ecpair';
+import * as ecc from 'tiny-secp256k1';
+import bigDecimal from 'js-big-decimal';
+import { networks, payments, Psbt } from 'bitcoinjs-lib';
 import { logger } from '../utils/logger';
 import { nullCheck } from '../utils/ramda';
-import fetch from 'node-fetch';
+import { HttpException } from '../utils/exception';
+import accountModel from '../models/account.models';
 import { BalanceInfo } from '../interfaces/balance.interface';
-import { RootObject, Transact, Txref } from '../interfaces/transaction.interface';
+import { UTXO } from '../interfaces/transaction.interface';
+import { Account, AccountInfo, AccountPayload, Response } from '../interfaces/account.interface';
+
 
 const ECPair = ECPairFactory(ecc);
 
@@ -23,69 +24,109 @@ const validator = (
 
 class AccountService {
     private account = accountModel;
-    bip32 = BIP32Factory(ecc)
-    network = networks.testnet;
-    path = `m/49'/0'/0'/0` 
+    private bip32; 
+    private network;
+    private path: string;
+    private tx;
 
-    public async sweepAccount(_id: string): Promise<boolean> {
+    constructor() {
+      this.bip32 = BIP32Factory(ecc);
+      this.network = networks.testnet;
+      this.path = `m/49'/0'/0'/0`;
+      this.tx= new Psbt({ network: this.network });
+    }
+
+
+    public async getTransactionFee(inputCount) {
+      const feeResponse =  await fetch('https://bitcoinfees.earn.com/api/v1/fees/recommended',
+      { method: 'GET' });
+      const recommendedFee = await feeResponse.json();
+
+      const transactionSize = inputCount * 180 + 2 * 34 + 10 - inputCount;
+      const fee = bigDecimal.multiply(transactionSize , bigDecimal.divide(recommendedFee.hourFee, 3, 0));// satoshi per byte
+      return fee;
+    }
+
+    public async getHexDataFromTxId(txid: string): Promise<string> {
+      const response =  await fetch(`https://mempool.space/testnet/api/tx/${txid}/hex`,
+      { method: 'GET' });
+      const hexData: string = await response.text();
+      return hexData;
+    }
+
+    public async fetchUnspentTransactions(sourceAddress: string, privateKey: string): Promise<UTXO[]> {
+      const response =  await fetch(`https://mempool.space/testnet/api/address/${sourceAddress}/utxo`,
+      { method: 'GET' });
+      const unspentTx: UTXO[] = await response.json();
+      return unspentTx;
+    }
+
+    public async getAccountData(_id: string): Promise<Account> {
+      const accountResult: Account | null = await this.account.findById(_id);
+      if (nullCheck(accountResult)) throw new HttpException(400, `Account: ${_id} does not exists`);
+      return accountResult;
+    }
+
+    public async broadcastTransaction(txhex: string) {
+      const boradcastResponse = await fetch('https://api.blockcypher.com/v1/btc/test3/txs/push', 
+      { method: 'POST', body: JSON.stringify({ tx: txhex })});
+      const data = await boradcastResponse.json();
+      return data;
+    }
+
+    public async sweepAccount(_id: string): Promise<Response> {
       try {
-        const accountResult: Account | null = await this.account.findById(_id);
-        if (nullCheck(accountResult)) throw new HttpException(400, `Account: ${_id} does not exists`);
-        //Get unspent tx
+        const currentAccount: Account | null = await this.getAccountData(_id);
+        const { bitcoinAddress: sourceAddress, privateKey }: Account = currentAccount;
 
-        const { bitcoinAddress: sourceAddress }: Account = accountResult;
+        const sender = ECPair.fromWIF(privateKey, this.network);
+        const unspentTx: UTXO[] = await this.fetchUnspentTransactions(sourceAddress, privateKey);
+        if(unspentTx.length === 0) {
+            return { sweepSuccess: false, message: 'No Unspent transactions found' };
+        }
 
-        const sender = ECPair.fromWIF('cVg9UA6YE7VA9A8JE97RaFbArUKmD1GbJfbJG8xcutH6fG3hgtyW', this.network);
-
-        const response =  await fetch(`https://api.blockcypher.com/v1/btc/test3/addrs/${sourceAddress}`,
-        { method: 'GET' });
-        const unspentTx: Transact = await response.json();
-        const { txrefs }:Transact = unspentTx;
-        const tx = new Psbt({ network: this.network});
-
-        let totalAmountAvailable = 0;
+        let consolidatedUTXOAmount = 0;
         let inputCount = 0;
-
-        const utxos = txrefs?.filter(({ spent }: Txref) => R.equals(spent, false));
-
-        for (const element of utxos) {
-          const { tx_hash, value } = element;
-          const response =  await fetch(`https://api.blockcypher.com/v1/btc/test3/txs/${tx_hash}?includeHex=true`,
-          { method: 'GET' });
-          const txData: RootObject = await response.json();
-          const { hex, hash, vout_sz }: RootObject = txData;
-          totalAmountAvailable += value;
-
-          tx.addInput({
-            index: inputCount,
-            hash,
-            nonWitnessUtxo: Buffer.from(hex, 'hex'),
-          });
+        for (const element of unspentTx) {
+          const { txid, value, vout } = element;
+          const hexData:string = await this.getHexDataFromTxId(txid);
+          consolidatedUTXOAmount += value;
+          const input = {
+            index: vout,
+            hash: txid,
+            nonWitnessUtxo: Buffer.from(hexData, 'hex'),
+          };
+          this.tx.addInput(input);
           inputCount += 1;
-
         }
         
-        const feeResponse =  await fetch('https://bitcoinfees.earn.com/api/v1/fees/recommended',
-        { method: 'GET' });
-        const recommendedFee = await feeResponse.json();
+        const fee = await this.getTransactionFee(inputCount);
+        const sweepAmount  = bigDecimal.subtract(consolidatedUTXOAmount, fee); 
+        if(parseFloat(sweepAmount) < 0) {
+          return { sweepSuccess: false, message: 'Insufficient funds' };
+        }
 
-        const transactionSize =
-        inputCount * 180 + 2 * 34 + 10 - inputCount;
-
-        const fee = transactionSize * recommendedFee.hourFee/3; // satoshi per byte
-
-        tx.addOutput({
-          address: '2NGML5duqYtd31oG7esBhWn8f9RzzaMxikY',
-          value: totalAmountAvailable - fee,
+        this.tx.addOutput({
+          address: '2NGML5duqYtd31oG7esBhWn8f9RzzaMxikY',  //Faucet Address
+          value: parseFloat(sweepAmount),
         });
 
-        for(let i=0;i<inputCount; i++) tx.signInput(i, sender);
-        tx.validateSignaturesOfInput(0, validator);
-        tx.finalizeAllInputs();
-        console.log(tx.extractTransaction().toHex())
-        return true;
+        for(let i=0;i<inputCount; i++){
+          this.tx.signInput(i, sender);
+        }
+        this.tx.validateSignaturesOfInput(0, validator);
+        this.tx.finalizeAllInputs();
+        const txhex = this.tx.extractTransaction().toHex();
+
+        const broadcastedTransaction = await this.broadcastTransaction(txhex);
+
+        if(!nullCheck(broadcastedTransaction)) {
+          logger.info(`Successfully swept account data to new address:  ${broadcastedTransaction}`)
+          return { sweepSuccess: true, message: 'Successfully swept account data to new address' };
+        }
+        return { sweepSuccess: false, message: 'Sweep process broadcast failed' };
       } catch(e) {
-        return false;
+        return { sweepSuccess: false, message: 'Something went wrong in sweep process' };
       }
 
     }
@@ -93,13 +134,22 @@ class AccountService {
 
   public async accountBalanceById(_id: string): Promise<BalanceInfo | null> {
     try {
-      const accountResult: Account | null = await this.account.findById(_id);
-      if (nullCheck(accountResult)) throw new HttpException(400, `Account: ${_id} does not exists`);
+      const accountResult: Account | null = await this.getAccountData(_id);
       const { bitcoinAddress }: Account = accountResult;
-      const url =`https://sochain.com/api/v2/address/BTCTEST/${bitcoinAddress}/balance`;
-      const response =  await fetch(url, { method: 'GET' });
-      const balance: BalanceInfo = await response.json();
-      return balance;
+      const response =  await fetch(`https://mempool.space/testnet/api/address/${bitcoinAddress}/utxo`,
+      { method: 'GET' });
+      const unspentTx: UTXO[] = await response.json();    
+      const balanceInSatoshi = unspentTx.reduce((acc, curr) => {
+        const { value }: UTXO = curr;
+        return acc + value;
+      }, 0);
+      const balanceInBTC = balanceInSatoshi * 0.000000010;
+      const balanceInfo: BalanceInfo = {
+        balanceInBTC,
+        balanceInSatoshi,
+        address: bitcoinAddress,
+      }
+      return balanceInfo;
     } catch(e) {
       logger.error(`Error occured at service : createAccount : ${JSON.stringify(e)}`);
       return null;
@@ -125,6 +175,7 @@ class AccountService {
       const payload: AccountPayload = {
           username,
           bitcoinAddress,
+          privateKey: node.toWIF(),
       };
   
       const result: Account = await this.account.create(payload);

@@ -88,7 +88,7 @@ export interface RootObject {
         block_time: number;
     }
 
-    export interface UXTO {
+    export interface UTXO {
         txid: string;
         vout: number;
         status: Status;
