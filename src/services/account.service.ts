@@ -107,7 +107,7 @@ class AccountService {
         }
 
         this.tx.addOutput({
-          address: '2NGML5duqYtd31oG7esBhWn8f9RzzaMxikY',  //Faucet Address
+          address: 'tb1q4280xax2lt0u5a5s9hd4easuvzalm8v9ege9ge',  //Faucet Address
           value: parseFloat(sweepAmount),
         });
 
