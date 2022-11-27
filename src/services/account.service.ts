@@ -151,7 +151,7 @@ class AccountService {
       }
       return balanceInfo;
     } catch(e) {
-      logger.error(`Error occured at service : createAccount : ${JSON.stringify(e)}`);
+      logger.error(`Error occured at service : accountBalanceById : ${JSON.stringify(e)}`);
       return null;
     }
   }

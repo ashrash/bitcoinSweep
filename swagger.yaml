@@ -1,31 +1,20 @@
 tags:
-- name: Users
-  description: Users API
-- name: Hobbies
-  description: Hobbies API
+- name: Account
+  description: Bitcoin Account API
 
 paths:
-  /users:
-    get:
-      tags:
-      - Users
-      summary: Find All Users
-      responses:
-        200:
-          description: 'OK'
-        500:
-          description: 'Server Error'
+  /product:
     post:
       tags:
-      - Users
-      summary: Add User
+      - Accounts
+      summary: Create an Account
       parameters:
       - name: body
         in: body
-        description: user Data
+        description: Account Data
         required: true
         schema:
-          $ref: '#/definitions/users'
+          $ref: '#/definitions/account'
       responses:
         201:
           description: 'Created'
@@ -33,35 +22,15 @@ paths:
           description: 'Bad Request'
         500:
           description: 'Server Error'
-    put:
-      tags:
-      - Users
-      summary: Update User By _id
-      parameters:
-      - name: body
-        in: body
-        description: user Data
-        required: true
-        schema:
-          $ref: '#/definitions/users'
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-  /users/{_id}:
+  /account/balance/{_id}:
     get:
       tags:
-      - Users
-      summary: Find User By id
+      - Account
+      summary: Get account balance by account id
       parameters:
       - name: _id
         in: path
-        description: User id
+        description: Account id
         required: true
       responses:
         200:
@@ -70,14 +39,15 @@ paths:
           description: 'Conflict'
         500:
           description: 'Server Error'
-    delete:
+  /account/sweep/{_id}:
+    get:
       tags:
-      - Users
-      summary: Delete User By id
+      - Account
+      summary: Sweep bitcoin account by accountId
       parameters:
       - name: _id
         in: path
-        description: user Id
+        description: Account id
         required: true
       responses:
         200:
@@ -86,118 +56,17 @@ paths:
           description: 'Conflict'
         500:
           description: 'Server Error'
-  /hobbies:
-    get:
-      tags:
-      - Hobbies
-      summary: Find all Hobbies
-      responses:
-        200:
-          description: 'OK'
-        500:
-          description: 'Server Error'
-  /hobbies/{userId}:
-    post:
-      tags:
-      - Hobbies
-      summary: Add Hobby by user Id
-      parameters:
-      - name: userId
-        in: path
-        description: user Id
-        required: true
-      - name: body
-        in: body
-        description: user Data
-        required: true
-        schema:
-          $ref: '#/definitions/hobbies'
-      responses:
-        201:
-          description: 'Created'
-        400:
-          description: 'Bad Request'
-        500:
-          description: 'Server Error'    
 
-  /hobbies/{_id}:
-    put:
-      tags:
-      - Hobbies
-      summary: Update Hobbies by _id
-      parameters:
-      - name: _id
-        in: path
-        description: Hobby object Id
-        required: true
-      - name: body
-        in: body
-        description: user Data
-        required: true
-        schema:
-          $ref: '#/definitions/hobbies'
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-  /hobbies/{userId}/{_id}:
-    delete:
-      tags:
-      - Hobbies
-      summary: Delete Hobbies by _id
-      parameters:
-      - name: userId
-        in: path
-        description: User Id
-        required: true
-      - name: _id
-        in: path
-        description: Hobby object Id
-        required: true
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
 # definitions
 definitions:
-  users:
+  account:
     type: object
     required:
-        - _id
         - name
     properties:
-      _id:
-        type: number
-        description: User Id
       name:
         type: string
         description: User Name
-  hobbies:
-    type: object
-    required:
-        - name
-        - passionLevel
-        - year
-    properties:
-      name:
-        type: string
-        description: User Name       
-      passionLevel:
-        type: string
-        description: passionLevel       
-      year:
-        type: number
-        description: year       
+   
 schemes:
- - https
  - http
